@@ -123,16 +123,16 @@ Once vLLM `v0.23` (or later) is released with the parser baked in, drop `--tool-
 
 ## MiniCPM5-15B-A2.5B
 
-The preview in [vLLM PR #68748](https://github.com/vllm-project/vllm/pull/68748) registers `MiniCPM5MoEForCausalLM` and supports BF16 and compressed-tensors INT4 W4A16. The launch below uses one H800 with TP=1.
+The preview in [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127) (supersedes `#68748`) registers `MiniCPM5MoEForCausalLM` and supports BF16 and `compressed-tensors` INT4 W4A16. The launch below uses one H800 with TP=1.
 
 ### Prepare the preview runtime
 
-The validation used the official CUDA nightly built at `9c1d45c21836370104d4eb51d3b46eda20719c47` with the PR's Python code overlaid. Set `MODEL_ROOT` to the host directory containing the target, its fast tokenizer and, for DSpark, the matching draft snapshot. Use complete local directories so all model files are available inside the container.
+The preview is based on upstream commit `9c1d45c21836370104d4eb51d3b46eda20719c47`, matching the official CUDA nightly image `vllm/vllm-openai@sha256:663d493862a5d2c3f212f28d1bf5a5fd76dff08ec76dd1ebd72a7d230621be9a` with the PR's five Python files overlaid. Set `MODEL_ROOT` to the host directory containing the target, its fast tokenizer and, for DSpark, the matching draft snapshot. Use complete local directories so all model files are available inside the container.
 
 ```bash
 git init vllm-minicpm5
 cd vllm-minicpm5
-git fetch --depth 1 https://github.com/cyxu0401/vllm.git 9d6347741dffb309e014475b49d1a752025d4e4a
+git fetch --depth 1 https://github.com/tc-mb/vllm.git a8d9b96fe0c7eaf5bc53afc45ba312b99bdfaed0
 git checkout --detach FETCH_HEAD
 
 MODEL_ROOT="/absolute/path/to/checkpoints"
@@ -173,7 +173,7 @@ TOKENIZER_DIR="/models/MiniCPM5-15B-A2.5B-tokenizer"
 extra=()
 ```
 
-For the asymmetric INT4 checkpoint in compressed-tensors format, select its directory and use Marlin for both Linear and MoE layers.
+For the asymmetric INT4 checkpoint in `compressed-tensors` format, select its directory and use Marlin for both Linear and MoE layers.
 
 ```bash
 MODEL_DIR="/models/MiniCPM5-15B-A2.5B-INT4"
@@ -209,6 +209,8 @@ curl -fsS http://127.0.0.1:8000/v1/chat/completions \
     }'
 ```
 
-### Validation scope
+### Validation scope and limitations
 
-At the pinned revision, one H800 completed four 48-token greedy requests for each BF16 and INT4 configuration with DSpark off and on. The INT4 trace showed Marlin for both Linear and MoE. BF16 matched greedy token IDs on all four prompts across draft modes. INT4 matched on two of four. The validation used `/v1/completions` with fixed input token IDs. [vLLM PR validation](https://github.com/vllm-project/vllm/pull/68748#validation)
+- CPU unit and registry tests passed at `a8d9b96f` (8 passed, 1 skipped for the unpublished online checkpoint). EPLB (`--enable-eplb`) and ROCm AITER shared-expert fusion (`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`) are explicitly unsupported and raise `NotImplementedError`.
+- GPU smoke tests ran at `6db175bb` (prior to the EPLB and ROCm fusion guard cleanup) on one H800 with TP=1, completing four 48-token greedy requests for each BF16 and `compressed-tensors` INT4 configuration with DSpark off and on. BF16 matched greedy token IDs across DSpark modes on all 4 prompts (and matched the Hugging Face SDPA first token on 4/4 prompts). INT4 used Marlin for both Linear and MoE and matched across DSpark modes on 1/4 prompts under the default compile path (4/4 in eager mode with `max_model_len=512` and prefix caching disabled). See [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127).
+- XML tool-call recovery and Responses tool-search fixes are tracked separately in [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128) (or use [`--tool-parser-plugin`](../../tool_parsers/minicpm5xml_tool_parser.py) for the baseline XML parser).

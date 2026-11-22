@@ -12,7 +12,7 @@ You're being asked to deploy / serve / chat-with a MiniCPM5-1B or MiniCPM5-2B ch
 
 For a MiniCPM5-15B-A2.5B checkpoint, use the matching skill's 15B section and follow its startup and validation steps.
 
-- **BF16 on NVIDIA H800.** Use the FA3 serving recipe in [SGLang](../minicpm5-deploy-sglang/SKILL.md#minicpm5-15b-a25b), or follow [vLLM](../minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b) when the user selects vLLM.
+- **BF16, AWQ-packed GPTQ INT4, or DSpark on NVIDIA H800 (SGLang).** Use the FA3 serving recipe in [SGLang](../minicpm5-deploy-sglang/SKILL.md#minicpm5-15b-a25b), or follow [vLLM](../minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b) for BF16 when the user selects vLLM.
 - **Compressed-tensors INT4 or vLLM DSpark.** Use the [vLLM preview](../minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b). Use a matching draft when enabling DSpark.
 - **GGUF inference or conversion from BF16 weights.** Use [llama.cpp](../minicpm5-deploy-llama-cpp/SKILL.md#minicpm5-15b-a25b).
 

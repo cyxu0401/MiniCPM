@@ -1,7 +1,7 @@
 ---
 name: minicpm5-deploy-sglang
 description: Serve MiniCPM5-1B or MiniCPM5-2B via SGLang as an OpenAI-compatible HTTP server with RadixAttention prefix cache and built-in MiniCPM5 tool-call parsing. Use when the user asks for "SGLang", "RadixAttention", "prefix cache", batch evaluation, tool calling, or wants a high-concurrency NVIDIA-GPU server alternative to vLLM.
-  Also covers BF16 serving for MiniCPM5-15B-A2.5B with FA3 on NVIDIA H800.
+  Also covers MiniCPM5-15B-A2.5B BF16, AWQ-packed GPTQ INT4 (`awq_marlin`), and DSpark with FA3 on NVIDIA H800.
 ---
 
 # Deploy MiniCPM5-1B and MiniCPM5-2B with SGLang
@@ -149,9 +149,9 @@ print(outputs)
 
 Use the [MiniCPM5-15B-A2.5B deployment commands](../../docs/deployment/sglang.md#minicpm5-15b-a25b) or the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/sglang.md#minicpm5-15b-a25b) for a standalone skill installation.
 
-1. Locate the BF16 snapshot with its tokenizer and chat template. Use the cookbook's pinned source from [SGLang PR #51568](https://github.com/sgl-project/sglang/pull/51568) and CUDA 13 image with FA3. The preview maps legacy `MiniCPM5MoEForCausalLM` checkpoints to the native `MiniCPM5ForCausalLM` model.
-2. Start `sglang serve` with `--attention-backend fa3` on one H800. Wait for `/health`, verify the served name on `/v1/models`, and send the chat sample.
-3. For a tool-calling request, enable `--tool-call-parser minicpm5` and verify the returned `message.tool_calls` and JSON arguments on that checkpoint.
+1. Locate the target snapshot (BF16 or the AWQ-packed asymmetric GPTQ INT4 checkpoint) with its tokenizer and chat template. Use the cookbook's pinned source from [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) and CUDA 13 image with FA3. The preview maps legacy `MiniCPM5MoEForCausalLM` checkpoints to `MiniCPM5ForCausalLM`.
+2. Start `sglang serve` with `--attention-backend fa3` on one H800; add `--quantization awq_marlin` for the GPTQ INT4 checkpoint (expect several minutes of Marlin kernel JIT on first launch). For DSpark, mount the matching draft checkpoint and pass `--speculative-algorithm DSPARK --speculative-draft-model-path /dspark --speculative-dspark-block-size 7`.
+3. Wait for `/health`, verify `MiniCPM5-15B-A2.5B` on `/v1/models`, and send the chat sample. For tool calling, add `--tool-call-parser minicpm5` (see [SGLang PR #52072](https://github.com/sgl-project/sglang/pull/52072) for the latest XML recovery / Responses fixes).
 
 ## Reference
 

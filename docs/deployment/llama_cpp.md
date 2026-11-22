@@ -84,7 +84,15 @@ build/bin/llama-quantize "$OUT/F16.gguf" "$OUT/Q8_0.gguf"   Q8_0
 
 ## MiniCPM5-15B-A2.5B
 
-Build the preview from the team source at [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644). This revision supports the `minicpm5_moe` GGUF architecture and the HF-to-GGUF target exporter.
+Build the preview from the team source at [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644). This revision supports the `minicpm5_moe` GGUF architecture, preserves the checkpoint's Hugging Face `add_bos_token` setting during conversion, and exports BF16 targets from HF weights.
+
+### Released GGUF artifacts
+
+| File | Size | Use case |
+| --- | --- | --- |
+| `MiniCPM5-15B-A2.5B-BF16.gguf` | 30.03 GB | reference BF16 precision |
+| `MiniCPM5-15B-A2.5B-Q8_0.gguf` | 15.97 GB | near-lossless 8-bit quantization |
+| `MiniCPM5-15B-A2.5B-Q4_K_M.gguf` | 9.12 GB | 4-bit mixed-precision GGUF (7.2M-token imatrix calibrated) |
 
 ### Build llama-server
 
@@ -93,13 +101,13 @@ The following builds the CUDA runtime on Linux. For CPU only, omit `-DGGML_CUDA=
 ```bash
 git init llama.cpp-minicpm5
 cd llama.cpp-minicpm5
-git fetch --depth 1 https://github.com/tc-mb/llama.cpp.git c2dd69cf449ce7ae87ffda68663a06359a4b04b0
+git fetch --depth 1 https://github.com/tc-mb/llama.cpp.git 66012061414302e529b8b4d3b1fe240a707bc60f
 git checkout --detach FETCH_HEAD
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON
 cmake --build build --config Release --target llama-server llama-quantize -j
 ```
 
-Use a BF16, Q8_0 or Q4_K_M GGUF for the target. To export the BF16 target from a local HF checkpoint and optionally produce a quantized GGUF, follow the [conversion instructions](https://github.com/tc-mb/llama.cpp/blob/c2dd69cf449ce7ae87ffda68663a06359a4b04b0/docs/models.md#minicpm5-moe). Obtain the matching DSpark draft GGUF separately.
+Use a BF16, Q8_0 or Q4_K_M GGUF for the target. To export the BF16 target from a local HF checkpoint and optionally produce a quantized GGUF, follow the [conversion instructions](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/models.md#minicpm5-moe). Obtain the matching DSpark draft GGUF separately.
 
 ### Start the server
 
@@ -145,4 +153,4 @@ DRAFT_GGUF_PATH="/path/to/MiniCPM5-15B-A2.5B-DSpark.gguf"
 
 - `--min-p 0` disables the target sampler's Min-P filter. `--spec-draft-p-min 0` disables early draft truncation by confidence. The target still verifies each proposal.
 - `-ctk` and `-ctv` set target K/V types. `-ctkd` and `-ctvd` set draft K/V types. Both caches use F16 regardless of the target weight format.
-- The short CPU generation tests used a 2,048-token context. They covered pre-existing BF16, Q8_0, and Q4_K_M GGUFs with DSpark off and on, plus ordinary generation with a newly exported BF16 target. For DSpark, check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/tc-mb/llama.cpp/blob/c2dd69cf449ce7ae87ffda68663a06359a4b04b0/docs/speculative.md#minicpm5-moe-target)
+- Validation in [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644) covers pre-existing BF16, Q8_0, and Q4_K_M GGUFs on one H800 (`-ngl 99`) with DSpark off and on (`--spec-draft-n-max 2`), plus CPU/CUDA architecture checks and HF `add_bos_token=false` export verification at `66012061`. For DSpark, check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/speculative.md#minicpm5-moe-target)
