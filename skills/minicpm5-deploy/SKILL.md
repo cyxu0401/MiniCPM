@@ -15,7 +15,7 @@ For a MiniCPM5-15B-A2.5B checkpoint, use the matching skill's 15B section and fo
 - **BF16, AWQ-packed GPTQ INT4, or DSpark on NVIDIA H800 (SGLang).** Use the FA3 serving recipe in [SGLang](../minicpm5-deploy-sglang/SKILL.md#minicpm5-15b-a25b), or follow [vLLM](../minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b) for BF16 when the user selects vLLM.
 - **Compressed-tensors INT4 or vLLM DSpark.** Use the [vLLM preview](../minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b). Use a matching draft when enabling DSpark.
 - **GGUF inference or conversion from BF16 weights.** Use [llama.cpp](../minicpm5-deploy-llama-cpp/SKILL.md#minicpm5-15b-a25b).
-- **MLX affine INT4 on Apple Silicon.** Use [MLX LM](../minicpm5-deploy-mlx/SKILL.md#minicpm5-15b-a25b) with a prepared MLX checkpoint. Use the separate [XML4 parser preview](../minicpm5-deploy-mlx/SKILL.md#minicpm5-xml4-tool-calling) for tool calls.
+- **MLX affine INT4 on Apple Silicon.** Use a prepared checkpoint with an official MLX LM release that supports `minicpm5_moe` once available. See the [MLX deployment skill](../minicpm5-deploy-mlx/SKILL.md#minicpm5-15b-a25b) for DSpark and XML4 tool-calling requirements.
 
 ## 1. Required input from the user
 

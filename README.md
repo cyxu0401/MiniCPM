@@ -158,7 +158,7 @@ We are releasing **MiniCPM5-2B**, the second model in the **MiniCPM5** series, f
 - **SGLang** for BF16, asymmetric GPTQ INT4 (`awq_marlin`), and DSpark serving with FA3 on NVIDIA H800. [Cookbook](./docs/deployment/sglang.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-sglang/SKILL.md#minicpm5-15b-a25b)
 - **vLLM** for BF16 and `compressed-tensors` INT4 Marlin serving, with optional DSpark. [Cookbook](./docs/deployment/vllm.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-vllm/SKILL.md#minicpm5-15b-a25b)
 - **llama.cpp** for GGUF inference and DSpark with a matching draft GGUF. [Cookbook](./docs/deployment/llama_cpp.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-llama-cpp/SKILL.md#minicpm5-15b-a25b)
-- **MLX LM** for affine INT4 inference on Apple Silicon, with preview paths for DSpark and XML4 tool calling. [Cookbook](./docs/deployment/mlx.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-mlx/SKILL.md#minicpm5-15b-a25b)
+- **MLX LM** for affine INT4 inference on Apple Silicon once upstream adds `minicpm5_moe` support. The Cookbook lists the runtime requirements for DSpark and XML4 tool calling. [Cookbook](./docs/deployment/mlx.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-mlx/SKILL.md#minicpm5-15b-a25b)
 
 ## 🚀 MiniCPM5-2B
 
