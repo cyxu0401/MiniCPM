@@ -84,14 +84,14 @@ build/bin/llama-quantize "$OUT/F16.gguf" "$OUT/Q8_0.gguf"   Q8_0
 
 ## MiniCPM5-15B-A2.5B
 
-Build the preview from the team source at [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644). This revision supports the `minicpm5_moe` GGUF architecture, preserves the checkpoint's Hugging Face `add_bos_token` setting during conversion, and exports BF16 targets from HF weights.
+Build the preview from the open [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644). This revision supports the `minicpm5_moe` GGUF architecture, preserves the checkpoint's Hugging Face `add_bos_token` setting during conversion, and exports BF16 targets from HF weights.
 
-### Released GGUF artifacts
+### GGUF checkpoints
 
 | File | Size | Use case |
 | --- | --- | --- |
 | `MiniCPM5-15B-A2.5B-BF16.gguf` | 30.03 GB | reference BF16 precision |
-| `MiniCPM5-15B-A2.5B-Q8_0.gguf` | 15.97 GB | near-lossless 8-bit quantization |
+| `MiniCPM5-15B-A2.5B-Q8_0.gguf` | 15.97 GB | 8-bit quantization |
 | `MiniCPM5-15B-A2.5B-Q4_K_M.gguf` | 9.12 GB | 4-bit mixed-precision GGUF (7.2M-token imatrix calibrated) |
 
 ### Build llama-server
@@ -153,4 +153,6 @@ DRAFT_GGUF_PATH="/path/to/MiniCPM5-15B-A2.5B-DSpark.gguf"
 
 - `--min-p 0` disables the target sampler's Min-P filter. `--spec-draft-p-min 0` disables early draft truncation by confidence. The target still verifies each proposal.
 - `-ctk` and `-ctv` set target K/V types. `-ctkd` and `-ctvd` set draft K/V types. Both caches use F16 regardless of the target weight format.
-- Validation in [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644) covers pre-existing BF16, Q8_0, and Q4_K_M GGUFs on one H800 (`-ngl 99`) with DSpark off and on (`--spec-draft-n-max 2`), plus CPU/CUDA architecture checks and HF `add_bos_token=false` export verification at `66012061`. For DSpark, check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/speculative.md#minicpm5-moe-target)
+- Check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/speculative.md#minicpm5-moe-target)
+
+The PR reports ordinary and DSpark generation with existing BF16, Q8_0, and Q4_K_M targets on one H800. The short smoke tests used a 2,048-token context. CPU smoke tests at `704d6731e` covered the same formats with F16 target and draft caches. The converter check at `66012061` separately verified `add_bos_token=false` and token parity for a vocabulary-only export. [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644)

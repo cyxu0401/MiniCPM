@@ -1,11 +1,14 @@
 ---
 name: minicpm5-deploy-mlx
 description: Run MiniCPM5-1B or MiniCPM5-2B natively on Apple Silicon with Apple's MLX framework. Use when the user has an Apple Silicon Mac and asks for "MLX", "mlx_lm", "mlx_lm.convert", "mlx_lm.generate", or wants the fastest path on Apple Silicon.
+  Also covers MiniCPM5-15B-A2.5B affine INT4 inference and DSpark with the MLX LM model preview, plus XML4 tool calling for 1B, 2B, and 15B with the parser preview.
 ---
 
 # Deploy MiniCPM5-1B and MiniCPM5-2B with MLX (Apple Silicon)
 
 Apple's on-device tensor framework. Highest throughput on M-series. Stays inside one Python process — no separate server, no `llama.cpp` build chain.
+
+For MiniCPM5-15B-A2.5B, start at [MiniCPM5-15B-A2.5B](#minicpm5-15b-a25b). For XML4 tools, use [MiniCPM5 XML4 tool calling](#minicpm5-xml4-tool-calling).
 
 ## Required input
 
@@ -78,6 +81,17 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 - Not on Apple Silicon → `minicpm5-deploy-llama-cpp` (CPU/CUDA) or `minicpm5-deploy-vllm` (CUDA)
 - Want a desktop GUI → `minicpm5-deploy-lmstudio` (LM Studio bundles an MLX runtime)
 - Want one-line CLI run → `minicpm5-deploy-ollama`
+
+## MiniCPM5-15B-A2.5B
+
+1. On Apple Silicon, resolve `MODEL_DIR` to a prepared MLX checkpoint directory. The tested format is affine INT4 with group size 128.
+2. Use the pinned [MLX LM model draft #1](https://github.com/cyxu0401/mlx-lm/pull/1) and the [15B launch commands](../../docs/deployment/mlx.md#minicpm5-15b-a25b). For a standalone skill installation, open the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/mlx.md#minicpm5-15b-a25b). The ordinary and DSpark examples were tested on an Apple M5 with 16 GiB of unified memory.
+3. Send a short `/v1/chat/completions` request using `default_model`. For DSpark, restart with the matching 15B draft, keep the KV caches unquantized, and check the server log for proposed and accepted tokens.
+
+## MiniCPM5 XML4 tool calling
+
+1. Use [MLX LM parser draft #2](https://github.com/cyxu0401/mlx-lm/pull/2) and the [XML4 launch commands](../../docs/deployment/mlx.md#minicpm5-xml4-tool-calling) ([GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/mlx.md#minicpm5-xml4-tool-calling)). Use the published MLX checkpoint for 1B or 2B. For 15B, add only `mlx_lm/models/minicpm5_moe` from the model draft to the parser checkout, and use ordinary decoding.
+2. Start the server with `--tool-call-parser minicpm5`. Verify structured `tool_calls` in JSON or SSE and send a tool result back with the same call ID. Confirm that the model uses the result in its next turn.
 
 ## Reference
 

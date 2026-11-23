@@ -123,7 +123,7 @@ Once vLLM `v0.23` (or later) is released with the parser baked in, drop `--tool-
 
 ## MiniCPM5-15B-A2.5B
 
-The preview in [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127) (supersedes `#68748`) registers `MiniCPM5MoEForCausalLM` and supports BF16 and `compressed-tensors` INT4 W4A16. The launch below uses one H800 with TP=1.
+The preview in the open [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127) (supersedes `#68748`) registers `MiniCPM5MoEForCausalLM` and supports BF16 and `compressed-tensors` INT4 W4A16. The launch below uses one H800 with TP=1.
 
 ### Prepare the preview runtime
 
@@ -165,12 +165,48 @@ cd "$OVERLAY"
 
 ### Choose the checkpoint and launch
 
-Set `MODEL_DIR` to the BF16 snapshot and `TOKENIZER_DIR` to the target's Transformers-compatible fast tokenizer, including its chat template. Use the model directory for both when it includes the compatible tokenizer. Run any optional settings in the same shell before starting the server.
+Set `MODEL_DIR` to the BF16 snapshot. Use the same Transformers-compatible fast tokenizer and chat template from the BF16 checkpoint for both BF16 and INT4. Plain-text encoding must preserve the checkpoint's `add_bos_token=false` and `add_eos_token=false` settings. The chat template can still emit its own special tokens.
 
 ```bash
 MODEL_DIR="/models/MiniCPM5-15B-A2.5B"
 TOKENIZER_DIR="/models/MiniCPM5-15B-A2.5B-tokenizer"
 extra=()
+```
+
+If the BF16 tokenizer still declares `LlamaTokenizerFast`, prepare a separate copy for the Transformers 5 runtime in the pinned image. The following converts the legacy class metadata and makes the serialized post-processor match the original plain-text encoding. Run it while `MODEL_DIR` still points to the BF16 snapshot.
+
+```bash
+TOKENIZER_DIR="$(mktemp -d)"
+python3 - "$MODEL_DIR" "$TOKENIZER_DIR" <<'PY'
+import json
+import shutil
+import sys
+from pathlib import Path
+
+from tokenizers import Tokenizer
+from tokenizers.processors import TemplateProcessing
+from transformers import AutoTokenizer
+
+source, output = map(Path, sys.argv[1:])
+config = json.loads((source / "tokenizer_config.json").read_text())
+assert config["tokenizer_class"] == "LlamaTokenizerFast"
+assert config["add_bos_token"] is False and config["add_eos_token"] is False
+
+raw = Tokenizer.from_file(str(source / "tokenizer.json"))
+fast = Tokenizer.from_file(str(source / "tokenizer.json"))
+fast.post_processor = TemplateProcessing(single="$A:0", pair="$A:0 $B:1", special_tokens=[])
+fast.save(str(output / "tokenizer.json"))
+config.update(tokenizer_class="PreTrainedTokenizerFast", padding_side="left")
+(output / "tokenizer_config.json").write_text(json.dumps(config))
+for name in ("special_tokens_map.json", "added_tokens.json", "chat_template.jinja"):
+    if (source / name).is_file():
+        shutil.copy2(source / name, output / name)
+
+tokenizer = AutoTokenizer.from_pretrained(output)
+assert tokenizer.is_fast and tokenizer.chat_template
+for text in ("The capital of France is", "请用一句话介绍北京。"):
+    assert tokenizer.encode(text) == raw.encode(text, add_special_tokens=False).ids
+PY
 ```
 
 For the asymmetric INT4 checkpoint in `compressed-tensors` format, select its directory and use Marlin for both Linear and MoE layers.
@@ -212,5 +248,11 @@ curl -fsS http://127.0.0.1:8000/v1/chat/completions \
 ### Validation scope and limitations
 
 - CPU unit and registry tests passed at `a8d9b96f` (8 passed, 1 skipped for the unpublished online checkpoint). EPLB (`--enable-eplb`) and ROCm AITER shared-expert fusion (`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`) are explicitly unsupported and raise `NotImplementedError`.
+- Target-only H800 tests at `ee331803` used the one-GPU launch settings above and the same prepared BF16 tokenizer for both precisions. BF16 and INT4 each completed four 48-token greedy `/v1/completions` requests with fixed input token IDs.
 - GPU smoke tests ran at `6db175bb` (prior to the EPLB and ROCm fusion guard cleanup) on one H800 with TP=1, completing four 48-token greedy requests for each BF16 and `compressed-tensors` INT4 configuration with DSpark off and on. BF16 matched greedy token IDs across DSpark modes on all 4 prompts (and matched the Hugging Face SDPA first token on 4/4 prompts). INT4 used Marlin for both Linear and MoE and matched across DSpark modes on 1/4 prompts under the default compile path (4/4 in eager mode with `max_model_len=512` and prefix caching disabled). See [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127).
-- XML tool-call recovery and Responses tool-search fixes are tracked separately in [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128) (or use [`--tool-parser-plugin`](../../tool_parsers/minicpm5xml_tool_parser.py) for the baseline XML parser).
+
+### XML tool calling
+
+The pinned nightly has the `minicpm5` parser built in. To enable auto tool choice for Chat Completions, add `--enable-auto-tool-choice --tool-call-parser minicpm5` and send the [tool request example](#tool-calling-plugin) with `MiniCPM5-15B-A2.5B` as the model name.
+
+The XML recovery and Responses tool-search preview was also exercised on H800 with a separate BF16 build combining an earlier model revision and the tool changes. See its launch flags and test scope in [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128).

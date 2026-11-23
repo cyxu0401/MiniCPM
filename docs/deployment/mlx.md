@@ -2,6 +2,8 @@
 
 [MLX](https://github.com/ml-explore/mlx) is Apple's on-device tensor framework. For MiniCPM5-1B and MiniCPM5-2B it is the recommended path on Apple Silicon (M1–M4) when you want **highest throughput** and want to stay inside one Python process — no separate server, no `llama.cpp` build chain.
 
+For MiniCPM5-15B-A2.5B, see [MiniCPM5-15B-A2.5B](#minicpm5-15b-a25b). For the preview XML4 parser on 1B, 2B, or 15B, see [MiniCPM5 XML4 tool calling](#minicpm5-xml4-tool-calling).
+
 ## TL;DR
 
 ```bash
@@ -99,3 +101,119 @@ Confirm you're on `mlx-lm >= 0.31`. Older versions ignored multi-id `eos_token_i
 - [`transformers.md`](./transformers.md) — same checkpoint, CPU / CUDA path
 - [`llama_cpp.md`](./llama_cpp.md) — alternative on-device path (CPU + Metal)
 - [`lmstudio.md`](./lmstudio.md) — desktop GUI consumer of the same MLX models
+
+## MiniCPM5-15B-A2.5B
+
+Use an Apple Silicon Mac and Python 3.11 or newer with the native `minicpm5_moe` preview. Set `MODEL_DIR` to a prepared MLX checkpoint directory with its tokenizer and chat template. The tested target uses 4-bit affine weights at group size 128, repacked into MLX format from asymmetric GPTQ. [MLX LM model draft #1](https://github.com/cyxu0401/mlx-lm/pull/1)
+
+### Install and start the server
+
+```bash
+git clone https://github.com/cyxu0401/mlx-lm.git mlx-lm-model-preview
+cd mlx-lm-model-preview
+git checkout --detach 1c4e747fc204e408a4885c18e3c68620c3d37685
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e . "mlx==0.32.4" "transformers==5.23.0"
+
+MODEL_DIR="/path/to/MiniCPM5-15B-A2.5B-MLX"
+python -m mlx_lm server --model-path "$MODEL_DIR" \
+    --host 127.0.0.1 --port 8080 --prefill-step-size 128 \
+    --allocator-cache-limit 268435456
+```
+
+### Speculative decoding with DSpark
+
+Stop the baseline server and select the matching DSpark draft snapshot for MiniCPM5-15B-A2.5B. This launch keeps the KV caches unquantized.
+
+```bash
+DSPARK_DIR="/path/to/MiniCPM5-15B-A2.5B-DSpark"
+python -m mlx_lm server --model-path "$MODEL_DIR" \
+    --host 127.0.0.1 --port 8080 --prefill-step-size 128 \
+    --allocator-cache-limit 268435456 --speculative-algorithm DSPARK \
+    --speculative-draft-model-path "$DSPARK_DIR"
+```
+
+### Chat completion
+
+In another terminal, check `/v1/models` and send a short chat request. `default_model` selects the checkpoint passed to the server.
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "default_model",
+        "messages": [{"role": "user", "content": "Write the integers from 1 through 12 in ascending order, separated by a comma and a space. Reply with just the list."}],
+        "temperature": 0,
+        "max_tokens": 64,
+        "chat_template_kwargs": {"enable_thinking": false}
+    }'
+```
+
+On an Apple M5 with 16 GiB of unified memory, this prompt returned the same list with ordinary decoding and with DSpark at `1c4e747`. Both responses used 35 completion tokens. DSpark accepted 29 of the 35 proposed tokens in that request. [MLX LM model draft #1](https://github.com/cyxu0401/mlx-lm/pull/1)
+
+## MiniCPM5 XML4 tool calling
+
+The [XML4 tool parser draft #2](https://github.com/cyxu0401/mlx-lm/pull/2) adds opt-in `--tool-call-parser minicpm5` to the chat server. It can serve the existing 1B and 2B MLX checkpoints as-is. For MiniCPM5-15B-A2.5B, use the parser checkout with the MoE model package from the model draft and ordinary decoding.
+
+### Prepare the parser preview
+
+Start in a separate checkout from the model preview.
+
+```bash
+git clone https://github.com/cyxu0401/mlx-lm.git mlx-lm-parser-preview
+cd mlx-lm-parser-preview
+git checkout --detach 7b89628e01f7ec4c0d3673618876556b57df5d98
+python3 -m venv .venv
+source .venv/bin/activate
+
+MODEL_PATH="openbmb/MiniCPM5-2B-MLX"
+# Or set MODEL_PATH="openbmb/MiniCPM5-1B-MLX".
+```
+
+For MiniCPM5-15B-A2.5B, set `MODEL_PATH` to the prepared MLX checkpoint and extract just the model package into the parser checkout. This keeps the server and generation code on the parser revision.
+
+```bash
+git archive 1c4e747fc204e408a4885c18e3c68620c3d37685 \
+    mlx_lm/models/minicpm5_moe | tar -x
+MODEL_PATH="/path/to/MiniCPM5-15B-A2.5B-MLX"
+```
+
+For either checkpoint size, install the preview and start the parser-enabled server.
+
+```bash
+python -m pip install -e . "mlx==0.32.4" "transformers==5.23.0"
+python -m mlx_lm server --model "$MODEL_PATH" --tool-call-parser minicpm5 \
+    --chat-template-args '{"has_tool_sep":false,"enable_thinking":false}' \
+    --host 127.0.0.1 --port 8080 --prefill-step-size 128 --decode-concurrency 1
+```
+
+### Send a tool request
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "default_model",
+        "messages": [{"role": "user", "content": "Use lookup_temperature to check the temperature in Beijing."}],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "lookup_temperature",
+                "description": "Look up the temperature for a city in Celsius.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"]
+                }
+            }
+        }],
+        "tool_choice": "auto",
+        "temperature": 0,
+        "max_tokens": 128
+    }'
+```
+
+Check `choices[0].message.tool_calls` for the function name, JSON arguments, and call ID. To continue the conversation, send the assistant's tool call back with a `role: "tool"` message whose `tool_call_id` matches. To test SSE, set `"stream": true` and use `curl -N`. Collect the fragments in `choices[0].delta.tool_calls` before sending a tool result.
+
+The parser draft was tested with JSON and SSE on Apple M5. The 1B and 2B affine INT4 checkpoints each completed two tool-call and result rounds in each transport with thinking disabled. The 15B affine INT4 checkpoint completed four three-turn conversations across JSON and SSE with thinking enabled and disabled. [MLX LM XML4 parser draft #2](https://github.com/cyxu0401/mlx-lm/pull/2)

@@ -140,7 +140,7 @@ print(outputs)
 
 ## MiniCPM5-15B-A2.5B
 
-Use the preview build from [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) (supersedes `#51568`). It registers `MiniCPM5ForCausalLM` for `model_type=minicpm5_moe`, maps legacy `MiniCPM5MoEForCausalLM` checkpoints to the native implementation, and supports BF16, asymmetric GPTQ INT4 (`awq_marlin`), and DSpark speculative decoding.
+Use the preview build from the open [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) (supersedes `#51568`). It registers `MiniCPM5ForCausalLM` for `model_type=minicpm5_moe`, maps legacy `MiniCPM5MoEForCausalLM` checkpoints to the native implementation, and supports BF16, asymmetric GPTQ INT4 (`awq_marlin`), and DSpark speculative decoding.
 
 ### Run on one NVIDIA H800
 
@@ -188,7 +188,7 @@ The first launch may take several minutes to JIT-compile the Marlin kernels.
 
 ### Speculative decoding with DSpark
 
-Mount the matching DSpark draft checkpoint alongside the target model (for example `-v "$DSPARK_PATH:/dspark:ro"`) and add the DSpark flags to `sglang serve`:
+Set `MODEL_PATH` to the BF16 or AWQ-packed GPTQ INT4 target and mount its matching DSpark draft separately. Omit `--quantization awq_marlin` for this launch. SGLang detects AWQ from the INT4 target's config, while the explicit flag would also select AWQ for the draft.
 
 ```bash
 DSPARK_PATH="/absolute/path/to/MiniCPM5-15B-A2.5B-DSpark"
@@ -208,6 +208,8 @@ docker run --rm --gpus device=0 --ipc=host \
     --host 0.0.0.0 --port 30000
 ```
 
+On one H800 with the pinned image, BF16 at `404a4d7f` and AWQ-packed GPTQ INT4 at `3c6688d1` each completed a 32-token greedy `/generate` request with DSpark and FA3. The draft config selected block size 7. The pinned preview `f0255af1` was checked with CPU tests and CLI validation.
+
 ### Chat completion
 
 Check readiness at `/health` and confirm that `/v1/models` lists `MiniCPM5-15B-A2.5B`. Then send a chat request.
@@ -223,4 +225,6 @@ curl -fsS http://127.0.0.1:30000/v1/chat/completions \
     }'
 ```
 
-For XML tool calling, add `--tool-call-parser minicpm5` to the launch command and use the [tool request example](#tool-calling) with `MiniCPM5-15B-A2.5B` in its `model` field. Check the parsed `message.tool_calls` on your checkpoint. Additional XML recovery and Responses tool-search fixes are tracked separately in [SGLang PR #52072](https://github.com/sgl-project/sglang/pull/52072).
+For XML tool calling, add `--tool-call-parser minicpm5` to the launch command and use the [tool request example](#tool-calling) with `MiniCPM5-15B-A2.5B` in its `model` field. Check the parsed `message.tool_calls` on your checkpoint.
+
+Additional XML recovery and Responses tool-search fixes are a separate preview. Its latest HTTP checks used MiniCPM5-1B and MiniCPM5-2B on CPU. [SGLang PR #52072](https://github.com/sgl-project/sglang/pull/52072)

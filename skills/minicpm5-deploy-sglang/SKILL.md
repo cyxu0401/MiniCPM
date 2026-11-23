@@ -150,7 +150,7 @@ print(outputs)
 Use the [MiniCPM5-15B-A2.5B deployment commands](../../docs/deployment/sglang.md#minicpm5-15b-a25b) or the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/sglang.md#minicpm5-15b-a25b) for a standalone skill installation.
 
 1. Locate the target snapshot (BF16 or the AWQ-packed asymmetric GPTQ INT4 checkpoint) with its tokenizer and chat template. Use the cookbook's pinned source from [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) and CUDA 13 image with FA3. The preview maps legacy `MiniCPM5MoEForCausalLM` checkpoints to `MiniCPM5ForCausalLM`.
-2. Start `sglang serve` with `--attention-backend fa3` on one H800; add `--quantization awq_marlin` for the GPTQ INT4 checkpoint (expect several minutes of Marlin kernel JIT on first launch). For DSpark, mount the matching draft checkpoint and pass `--speculative-algorithm DSPARK --speculative-draft-model-path /dspark --speculative-dspark-block-size 7`.
+2. Start `sglang serve` with `--attention-backend fa3` on one H800. For target-only GPTQ INT4, pass `--quantization awq_marlin`. For DSpark, mount the matching draft and pass `--speculative-algorithm DSPARK --speculative-draft-model-path /dspark --speculative-dspark-block-size 7`. Omit `--quantization` for DSpark so SGLang detects AWQ on the INT4 target without applying it to the draft.
 3. Wait for `/health`, verify `MiniCPM5-15B-A2.5B` on `/v1/models`, and send the chat sample. For tool calling, add `--tool-call-parser minicpm5` (see [SGLang PR #52072](https://github.com/sgl-project/sglang/pull/52072) for the latest XML recovery / Responses fixes).
 
 ## Reference
