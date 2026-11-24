@@ -160,6 +160,15 @@ We are releasing **MiniCPM5-2B**, the second model in the **MiniCPM5** series, f
 - **llama.cpp** for GGUF inference and DSpark with a matching draft GGUF. [Cookbook](./docs/deployment/llama_cpp.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-llama-cpp/SKILL.md#minicpm5-15b-a25b)
 - **MLX LM** for affine INT4 inference on Apple Silicon once upstream adds `minicpm5_moe` support. The Cookbook lists the runtime requirements for DSpark and XML4 tool calling. [Cookbook](./docs/deployment/mlx.md#minicpm5-15b-a25b) · [Agent Skill](./skills/minicpm5-deploy-mlx/SKILL.md#minicpm5-15b-a25b)
 
+The model and tool-calling changes are tracked separately.
+
+| Framework | Model and DSpark | Tool calling |
+| --- | --- | --- |
+| SGLang | [sgl-project/sglang#52071](https://github.com/sgl-project/sglang/pull/52071) | [XML recovery and Responses tool search #52072](https://github.com/sgl-project/sglang/pull/52072) |
+| vLLM | [vllm-project/vllm#69127](https://github.com/vllm-project/vllm/pull/69127) | [XML recovery and Responses tool search #69128](https://github.com/vllm-project/vllm/pull/69128) |
+| llama.cpp | [ggml-org/llama.cpp#32644](https://github.com/ggml-org/llama.cpp/pull/32644) | [XML recovery and Responses history #32746](https://github.com/ggml-org/llama.cpp/pull/32746) (closed without merge) |
+| MLX LM (`cyxu0401/mlx-lm` fork) | [Native MoE model and DSpark #1](https://github.com/cyxu0401/mlx-lm/pull/1) | [Opt-in XML4 parser #2](https://github.com/cyxu0401/mlx-lm/pull/2) |
+
 ## 🚀 MiniCPM5-2B
 
 ### Introduction

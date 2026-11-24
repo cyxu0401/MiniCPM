@@ -149,7 +149,7 @@ Use the pinned PR source with the official Linux x86-64 CUDA 13 image (`lmsysorg
 ```bash
 git init sglang-minicpm5
 cd sglang-minicpm5
-git fetch --depth 1 https://github.com/tc-mb/sglang.git f0255af1a1675cc1213207b8ad94086e74d571f0
+git fetch --depth 1 https://github.com/sgl-project/sglang.git f0255af1a1675cc1213207b8ad94086e74d571f0
 git checkout --detach FETCH_HEAD
 
 MODEL_PATH="/absolute/path/to/MiniCPM5-15B-A2.5B"

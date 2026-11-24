@@ -101,13 +101,13 @@ The following builds the CUDA runtime on Linux. For CPU only, omit `-DGGML_CUDA=
 ```bash
 git init llama.cpp-minicpm5
 cd llama.cpp-minicpm5
-git fetch --depth 1 https://github.com/tc-mb/llama.cpp.git 66012061414302e529b8b4d3b1fe240a707bc60f
+git fetch --depth 1 https://github.com/ggml-org/llama.cpp.git 66012061414302e529b8b4d3b1fe240a707bc60f
 git checkout --detach FETCH_HEAD
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON
 cmake --build build --config Release --target llama-server llama-quantize -j
 ```
 
-Use a BF16, Q8_0 or Q4_K_M GGUF for the target. To export the BF16 target from a local HF checkpoint and optionally produce a quantized GGUF, follow the [conversion instructions](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/models.md#minicpm5-moe). Obtain the matching DSpark draft GGUF separately.
+Use a BF16, Q8_0 or Q4_K_M GGUF for the target. To export the BF16 target from a local HF checkpoint and optionally produce a quantized GGUF, follow the [conversion instructions](https://github.com/ggml-org/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/models.md#minicpm5-moe). Obtain the matching DSpark draft GGUF separately.
 
 ### Start the server
 
@@ -153,6 +153,10 @@ DRAFT_GGUF_PATH="/path/to/MiniCPM5-15B-A2.5B-DSpark.gguf"
 
 - `--min-p 0` disables the target sampler's Min-P filter. `--spec-draft-p-min 0` disables early draft truncation by confidence. The target still verifies each proposal.
 - `-ctk` and `-ctv` set target K/V types. `-ctkd` and `-ctvd` set draft K/V types. Both caches use F16 regardless of the target weight format.
-- Check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/tc-mb/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/speculative.md#minicpm5-moe-target)
+- Check the server log for drafted and accepted tokens. [llama.cpp startup reference](https://github.com/ggml-org/llama.cpp/blob/66012061414302e529b8b4d3b1fe240a707bc60f/docs/speculative.md#minicpm5-moe-target)
 
 The PR reports ordinary and DSpark generation with existing BF16, Q8_0, and Q4_K_M targets on one H800. The short smoke tests used a 2,048-token context. CPU smoke tests at `704d6731e` covered the same formats with F16 target and draft caches. The converter check at `66012061` separately verified `add_bos_token=false` and token parity for a vocabulary-only export. [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644)
+
+### XML tool calling
+
+The XML recovery and Responses history changes were proposed separately and closed without merge. The 15B Q4_K_M tool-calling test on H800 combined the parser at `b0b7476e` with the model at `66012061`. [Parser PR #32746](https://github.com/ggml-org/llama.cpp/pull/32746)

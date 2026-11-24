@@ -132,7 +132,7 @@ The preview is based on upstream commit `9c1d45c21836370104d4eb51d3b46eda20719c4
 ```bash
 git init vllm-minicpm5
 cd vllm-minicpm5
-git fetch --depth 1 https://github.com/tc-mb/vllm.git a8d9b96fe0c7eaf5bc53afc45ba312b99bdfaed0
+git fetch --depth 1 https://github.com/vllm-project/vllm.git 9ea15f001142d5e2e7ea38f35d076886e59881fc
 git checkout --detach FETCH_HEAD
 
 MODEL_ROOT="/absolute/path/to/checkpoints"
@@ -247,7 +247,7 @@ curl -fsS http://127.0.0.1:8000/v1/chat/completions \
 
 ### Validation scope and limitations
 
-- CPU unit and registry tests passed at `a8d9b96f` (8 passed, 1 skipped for the unpublished online checkpoint). EPLB (`--enable-eplb`) and ROCm AITER shared-expert fusion (`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`) are explicitly unsupported and raise `NotImplementedError`.
+- CPU unit and registry tests at `9ea15f00` reported 8 passed and 1 skipped because the checkpoint was unavailable online. Enabling EPLB (`--enable-eplb`) or ROCm AITER shared-expert fusion (`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`) raises `NotImplementedError` on this revision.
 - Target-only H800 tests at `ee331803` used the one-GPU launch settings above and the same prepared BF16 tokenizer for both precisions. BF16 and INT4 each completed four 48-token greedy `/v1/completions` requests with fixed input token IDs.
 - GPU smoke tests ran at `6db175bb` (prior to the EPLB and ROCm fusion guard cleanup) on one H800 with TP=1, completing four 48-token greedy requests for each BF16 and `compressed-tensors` INT4 configuration with DSpark off and on. BF16 matched greedy token IDs across DSpark modes on all 4 prompts (and matched the Hugging Face SDPA first token on 4/4 prompts). INT4 used Marlin for both Linear and MoE and matched across DSpark modes on 1/4 prompts under the default compile path (4/4 in eager mode with `max_model_len=512` and prefix caching disabled). See [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127).
 

@@ -104,9 +104,29 @@ Confirm you're on `mlx-lm >= 0.31`. Older versions ignored multi-id `eos_token_i
 
 ## MiniCPM5-15B-A2.5B
 
-Use an Apple Silicon Mac with Python 3.11 or newer. The 15B checkpoint requires an official MLX LM release with `minicpm5_moe` support. As of 2026-11-23, upstream model support is pending. The examples below assume a build that includes the model implementation. [MLX LM releases](https://github.com/ml-explore/mlx-lm/releases)
+Use an Apple Silicon Mac with Python 3.11 or newer. Deployment requires an official MLX LM release that includes `minicpm5_moe`. As of 2026-11-24, the latest upstream release is v0.32.2 and lacks this model. The native model and DSpark server used in the examples are tracked in the `cyxu0401/mlx-lm` fork. [Upstream release](https://github.com/ml-explore/mlx-lm/releases/tag/v0.32.2) · [Model and DSpark PR #1](https://github.com/cyxu0401/mlx-lm/pull/1)
 
-Set `MODEL_DIR` to a prepared MLX checkpoint directory with its tokenizer and chat template. The tested target uses 4-bit affine weights at group size 128, repacked from asymmetric GPTQ.
+Set `MODEL_DIR` to a prepared MLX checkpoint directory with its tokenizer and chat template. The M5 run used a single-file target with 4-bit affine weights, repacked from asymmetric GPTQ with group size 128.
+
+To reproduce that run locally, start in a checkout containing the model implementation at `1c4e747`. The test used Python 3.13.15 with the following packages.
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e . 'mlx==0.32.4' 'transformers==5.23.0'
+python -c "from mlx_lm.models.minicpm5_moe import Model"
+```
+
+### Generate a short completion
+
+The model PR used this command to check the native model package on Linux CPU. It also works as a local generation check before starting the server.
+
+```bash
+MODEL_DIR="/path/to/MiniCPM5-15B-A2.5B-MLX"
+python -m mlx_lm generate --model "$MODEL_DIR" \
+    --prompt "The secret to baking a good cake is" \
+    --max-tokens 24 --temp 0 --chat-template-config '{"enable_thinking":false}'
+```
 
 ### Start the server
 
@@ -149,11 +169,13 @@ On an Apple M5 with 16 GiB of unified memory, this prompt returned the same list
 
 ## MiniCPM5 XML4 tool calling
 
-Use an MLX LM build that provides the explicit `--tool-call-parser minicpm5` option and the MiniCPM5 XML4 parser behavior. For MiniCPM5-15B-A2.5B, the same build also needs `minicpm5_moe` model support. The 15B example uses ordinary decoding.
+The XML4 parser reads the model's XML tool calls and returns structured `tool_calls` in both JSON and streaming chat completions. It uses the tokenizer's reasoning markers to keep reasoning text separate. Enable it with `--tool-call-parser minicpm5`. Upstream v0.32.2 lacks this option. [XML4 parser PR #2 in the cyxu0401/mlx-lm fork](https://github.com/cyxu0401/mlx-lm/pull/2)
+
+The published 1B and 2B MLX checkpoints use the parser build directly. The MiniCPM5-15B-A2.5B test used the server and parser at `7b89628` with the `mlx_lm/models/minicpm5_moe` package from the model PR at `1c4e747`. It used ordinary decoding.
 
 ### Start the XML4 server
 
-Select the MLX checkpoint in the environment with those features installed.
+Check that `python -m mlx_lm server --help` lists `--tool-call-parser`, then select the checkpoint.
 
 ```bash
 MODEL_PATH="openbmb/MiniCPM5-2B-MLX"
@@ -190,6 +212,6 @@ curl -fsS http://127.0.0.1:8080/v1/chat/completions \
     }'
 ```
 
-Check `choices[0].message.tool_calls` for the function name, JSON arguments, and call ID. To continue the conversation, send the assistant's tool call back with a `role: "tool"` message whose `tool_call_id` matches. To test SSE, set `"stream": true` and use `curl -N`. Collect the fragments in `choices[0].delta.tool_calls` before sending a tool result.
+Check `choices[0].message.tool_calls` for the function name, JSON arguments, and call ID. To continue the conversation, send the assistant's tool calls back and add a `role: "tool"` message with the matching `tool_call_id` for each result. To test SSE, set `"stream": true` and use `curl -N`. Assemble the fragments in `choices[0].delta.tool_calls` by call index before returning the results.
 
-The XML4 parser changes at `7b89628` were tested with JSON and SSE on Apple M5. The 1B and 2B affine INT4 checkpoints each completed two tool-call and result rounds in each transport with thinking disabled. The 15B affine INT4 checkpoint completed four three-turn conversations across JSON and SSE with thinking enabled and disabled.
+On Apple M5, the 1B and 2B affine INT4 checkpoints (group size 64) each completed two tool-call and result rounds in each transport with thinking disabled. The 15B affine INT4 checkpoint (group size 128) completed four three-turn conversations covering JSON and SSE with thinking enabled and disabled. All 12 requests in the 15B test returned HTTP 200.
