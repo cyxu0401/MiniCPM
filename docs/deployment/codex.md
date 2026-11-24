@@ -11,28 +11,30 @@ Codex sends tool requests to `/v1/responses`. The server streams a function call
 
 ## Start the tested vLLM server
 
-Use the H800 CUDA nightly from the [vLLM guide](vllm.md#prepare-the-preview-runtime). The commands below reconstruct the tested Python source from the base revision, five files for Responses and five files for model loading. The image supplies the compiled extensions. [Model PR #69127](https://github.com/vllm-project/vllm/pull/69127) · [Responses PR #69128](https://github.com/vllm-project/vllm/pull/69128)
+Use the H800 CUDA nightly from the [vLLM guide](vllm.md#prepare-the-preview-runtime). The commands below apply the five-file Responses change to the tested vLLM base with a three-way merge, then overlay five files for model loading. The image supplies the compiled extensions. [Model PR #69127](https://github.com/vllm-project/vllm/pull/69127) · [Responses PR #69128](https://github.com/vllm-project/vllm/pull/69128)
 
 On the Docker host, point `MODEL_PATH` to the same GPTQ directory used by SGLang. The directory includes the tokenizer and chat template.
 
 ```bash
+set -euo pipefail
 MODEL_PATH="/absolute/path/to/MiniCPM5-15B-A2.5B-GPTQ"
 SRC=$(mktemp -d)
 REPO=$(mktemp -d)
 git -C "$REPO" init -q
 UPSTREAM=https://github.com/vllm-project/vllm.git
 BASE_REV=80456e51f8ec16e88eeb918881f7a758cbd1c2fe
+TOOLS_BASE=9a77b4201bc4551f7e23ce59758dcbe6410c9e10
 TOOLS_REV=1d53c2776e66dd38d9ebe27cb98d37f3132fb65d
 MODEL_REV=249db3bc16a0a3de722218110e042eb9595168ce
-for rev in "$BASE_REV" "$TOOLS_REV" "$MODEL_REV"; do
-    git -C "$REPO" fetch --depth 1 "$UPSTREAM" "$rev" || exit 1
+for rev in "$BASE_REV" "$TOOLS_BASE" "$TOOLS_REV" "$MODEL_REV"; do
+    git -C "$REPO" fetch --depth 1 "$UPSTREAM" "$rev"
 done
 
-git -C "$REPO" archive "$BASE_REV" vllm | tar -xf - -C "$SRC"
-git -C "$REPO" archive "$TOOLS_REV" \
-    vllm/entrypoints/openai/responses/{minicpm5,protocol,serving}.py \
-    vllm/entrypoints/scale_out/render/serving.py \
-    vllm/tool_parsers/minicpm5xml_tool_parser.py | tar -xf - -C "$SRC"
+git -C "$REPO" read-tree "$BASE_REV"
+git -C "$REPO" diff --full-index "$TOOLS_BASE" "$TOOLS_REV" -- vllm |
+    git -C "$REPO" apply --3way --cached
+SOURCE_TREE=$(git -C "$REPO" write-tree)
+git -C "$REPO" archive "$SOURCE_TREE" vllm | tar -xf - -C "$SRC"
 git -C "$REPO" archive "$MODEL_REV" \
     vllm/model_executor/models/{minicpm5_moe,registry}.py \
     vllm/transformers_utils/config.py \
