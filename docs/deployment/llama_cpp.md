@@ -86,13 +86,15 @@ build/bin/llama-quantize "$OUT/F16.gguf" "$OUT/Q8_0.gguf"   Q8_0
 
 Build the preview from the open [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644). This revision supports the `minicpm5_moe` GGUF architecture, preserves the checkpoint's Hugging Face `add_bos_token` setting during conversion, and exports BF16 targets from HF weights.
 
+**Test environment.** Linux x86-64, one NVIDIA H800 (SM 90), CUDA Toolkit 13.0.88, GCC 13.3 and a CMake Release build of `llama-server`. The GPU test used a private CUDA development image. For a public build environment, `nvidia/cuda:13.0.1-devel-ubuntu24.04` provides NVCC. Install Git, CMake and a C++ compiler before building the pinned source below. [CUDA development image](https://hub.docker.com/r/nvidia/cuda/tags?name=13.0.1-devel-ubuntu24.04)
+
 ### GGUF checkpoints
 
-| File | Size | Use case |
+| File | File size (1 GiB = 2³⁰ bytes) | Use case |
 | --- | --- | --- |
-| `MiniCPM5-15B-A2.5B-BF16.gguf` | 30.03 GB | reference BF16 precision |
-| `MiniCPM5-15B-A2.5B-Q8_0.gguf` | 15.97 GB | 8-bit quantization |
-| `MiniCPM5-15B-A2.5B-Q4_K_M.gguf` | 9.12 GB | 4-bit mixed-precision GGUF (7.2M-token imatrix calibrated) |
+| `MiniCPM5-15B-A2.5B-BF16.gguf` | 27.97 GiB | reference BF16 precision |
+| `MiniCPM5-15B-A2.5B-Q8_0.gguf` | 14.87 GiB | 8-bit quantization |
+| `MiniCPM5-15B-A2.5B-Q4_K_M.gguf` | 8.49 GiB | 4-bit mixed-precision GGUF (7.2M-token imatrix calibrated) |
 
 ### Build llama-server
 
@@ -160,3 +162,5 @@ The PR reports ordinary and DSpark generation with existing BF16, Q8_0, and Q4_K
 ### XML tool calling
 
 The XML recovery and Responses history changes were proposed separately and closed without merge. The 15B Q4_K_M tool-calling test on H800 combined the parser at `b0b7476e` with the model at `66012061`. [Parser PR #32746](https://github.com/ggml-org/llama.cpp/pull/32746)
+
+The combined Q4_K_M server completed a read-only MCP call using Codex CLI 0.171.0. See [Codex CLI tool calling](codex.md) for the client configuration and expected events.

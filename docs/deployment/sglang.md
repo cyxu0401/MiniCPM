@@ -142,6 +142,8 @@ print(outputs)
 
 Use the preview build from the open [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) (supersedes `#51568`). It registers `MiniCPM5ForCausalLM` for `model_type=minicpm5_moe`, maps legacy `MiniCPM5MoEForCausalLM` checkpoints to the native implementation, and supports BF16, asymmetric GPTQ INT4 (`awq_marlin`), and DSpark speculative decoding.
 
+**Test environment.** Linux x86-64, one NVIDIA H800, CUDA 13 and FA3. The examples use `lmsysorg/sglang@sha256:d7976d3a5963ea29eb34a3d94dd2304b3b9a8245da78add7ada9cb15bf77a641` with the MiniCPM5 model code at `f0255af1`. The INT4 input is the same AWQ GEMM-packed GPTQ directory used by vLLM. [vLLM launch](vllm.md#serve-the-published-gptq-int4-checkpoint)
+
 ### Run on one NVIDIA H800
 
 Use the pinned PR source with the official Linux x86-64 CUDA 13 image (`lmsysorg/sglang:dev-cu13`, which includes FA3). Set `MODEL_PATH` to an absolute path to a complete checkpoint snapshot with its tokenizer and chat template.
@@ -228,3 +230,5 @@ curl -fsS http://127.0.0.1:30000/v1/chat/completions \
 For XML tool calling, add `--tool-call-parser minicpm5` to the launch command and use the [tool request example](#tool-calling) with `MiniCPM5-15B-A2.5B` in its `model` field. Check the parsed `message.tool_calls` on your checkpoint.
 
 Additional XML recovery and Responses tool-search fixes are a separate preview. Its latest HTTP checks used MiniCPM5-1B and MiniCPM5-2B on CPU. [SGLang PR #52072](https://github.com/sgl-project/sglang/pull/52072)
+
+See [Codex CLI tool calling](codex.md) for Responses tool search, result replay and the scope of the 15B tests.

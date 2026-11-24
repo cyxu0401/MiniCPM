@@ -104,6 +104,8 @@ Confirm you're on `mlx-lm >= 0.31`. Older versions ignored multi-id `eos_token_i
 
 ## MiniCPM5-15B-A2.5B
 
+**Test environment.** Apple M5, 16 GiB unified memory, macOS 26.6.2 arm64, Python 3.13.15, MLX 0.32.4 and Transformers 5.23.0. The server runs natively with Metal. Install the MLX LM model build in a macOS virtual environment.
+
 Use an Apple Silicon Mac with Python 3.11 or newer. Deployment requires an official MLX LM release that includes `minicpm5_moe`. As of 2026-11-24, the latest upstream release is v0.32.2 and lacks this model. The native model and DSpark server used in the examples are tracked in the `cyxu0401/mlx-lm` fork. [Upstream release](https://github.com/ml-explore/mlx-lm/releases/tag/v0.32.2) · [Model and DSpark PR #1](https://github.com/cyxu0401/mlx-lm/pull/1)
 
 Set `MODEL_DIR` to a prepared MLX checkpoint directory with its tokenizer and chat template. The M5 run used a single-file target with 4-bit affine weights, repacked from asymmetric GPTQ with group size 128.
@@ -215,3 +217,5 @@ curl -fsS http://127.0.0.1:8080/v1/chat/completions \
 Check `choices[0].message.tool_calls` for the function name, JSON arguments, and call ID. To continue the conversation, send the assistant's tool calls back and add a `role: "tool"` message with the matching `tool_call_id` for each result. To test SSE, set `"stream": true` and use `curl -N`. Assemble the fragments in `choices[0].delta.tool_calls` by call index before returning the results.
 
 On Apple M5, the 1B and 2B affine INT4 checkpoints (group size 64) each completed two tool-call and result rounds in each transport with thinking disabled. The 15B affine INT4 checkpoint (group size 128) completed four three-turn conversations covering JSON and SSE with thinking enabled and disabled. All 12 requests in the 15B test returned HTTP 200.
+
+The tested XML4 server exposes tools through Chat Completions. Codex CLI uses `/v1/responses`. For a tested Codex backend, see [Codex CLI tool calling](codex.md).

@@ -117,6 +117,10 @@ Trained a **LoRA adapter** (not a full model) and want to apply it at runtime wi
 
 ## MiniCPM5-15B-A2.5B
 
+The H800 build used CUDA Toolkit 13.0.88, GCC 13.3 and CMake Release. A public NVCC build base is `nvidia/cuda:13.0.1-devel-ubuntu24.04`. [Build environment and model source](../../docs/deployment/llama_cpp.md#minicpm5-15b-a25b)
+
+For Codex, the tested Q4_K_M build combines the model and parser changes and runs with `--jinja` and a 16,384-token context. [Codex CLI tool calling](../../docs/deployment/codex.md)
+
 Use the [MiniCPM5-15B-A2.5B deployment commands](../../docs/deployment/llama_cpp.md#minicpm5-15b-a25b). For a standalone skill installation, open the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/llama_cpp.md#minicpm5-15b-a25b).
 
 1. Build the pinned runtime from [llama.cpp PR #32644](https://github.com/ggml-org/llama.cpp/pull/32644) (`66012061`, with `minicpm5_moe` architecture support and HF `add_bos_token` preservation). Resolve `GGUF_PATH` to a BF16, Q8_0 or Q4_K_M target. If the user only has HF weights, follow the cookbook's target conversion link.

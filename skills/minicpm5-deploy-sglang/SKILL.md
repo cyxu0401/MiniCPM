@@ -147,6 +147,10 @@ print(outputs)
 
 ## MiniCPM5-15B-A2.5B
 
+Use Linux x86-64, an NVIDIA H800 and the CUDA 13 `lmsysorg/sglang:dev-cu13` image with FA3. [Pinned image digest and model source](../../docs/deployment/sglang.md#minicpm5-15b-a25b)
+
+For Codex, check the separate Responses tool-search support and its test scope. [Codex CLI tool calling](../../docs/deployment/codex.md)
+
 Use the [MiniCPM5-15B-A2.5B deployment commands](../../docs/deployment/sglang.md#minicpm5-15b-a25b) or the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/sglang.md#minicpm5-15b-a25b) for a standalone skill installation.
 
 1. Locate the target snapshot (BF16 or the AWQ-packed asymmetric GPTQ INT4 checkpoint) with its tokenizer and chat template. Use the cookbook's pinned source from [SGLang PR #52071](https://github.com/sgl-project/sglang/pull/52071) and CUDA 13 image with FA3. The preview maps legacy `MiniCPM5MoEForCausalLM` checkpoints to `MiniCPM5ForCausalLM`.

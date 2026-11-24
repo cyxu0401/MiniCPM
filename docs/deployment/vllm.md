@@ -123,24 +123,23 @@ Once vLLM `v0.23` (or later) is released with the parser baked in, drop `--tool-
 
 ## MiniCPM5-15B-A2.5B
 
-The preview in the open [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127) (supersedes `#68748`) registers `MiniCPM5MoEForCausalLM` and supports BF16 and `compressed-tensors` INT4 W4A16. The launch below uses one H800 with TP=1.
+The model preview registers `MiniCPM5MoEForCausalLM`. SGLang and vLLM both load the published asymmetric GPTQ INT4 checkpoint directly. Its `config.json` declares `quant_method: awq` and its `model.safetensors` uses AWQ GEMM packing. [vLLM model PR #69127](https://github.com/vllm-project/vllm/pull/69127)
 
 ### Prepare the preview runtime
 
-The preview is based on upstream commit `9c1d45c21836370104d4eb51d3b46eda20719c47`, matching the official CUDA nightly image `vllm/vllm-openai@sha256:663d493862a5d2c3f212f28d1bf5a5fd76dff08ec76dd1ebd72a7d230621be9a` with the PR's five Python files overlaid. Set `MODEL_ROOT` to the host directory containing the target, its fast tokenizer and, for DSpark, the matching draft snapshot. Use complete local directories so all model files are available inside the container.
+**Test environment.** Linux x86-64, one NVIDIA H800, driver 595.45.04, Python 3.12, and vLLM `0.34.0rc1.dev897+g9c1d45c21`. The tested CUDA nightly is `vllm/vllm-openai@sha256:663d493862a5d2c3f212f28d1bf5a5fd76dff08ec76dd1ebd72a7d230621be9a`. Overlay the five Python files from `249db3bc` as shown below. Set `MODEL_PATH` to the same complete local GPTQ directory you use with SGLang.
 
 ```bash
 git init vllm-minicpm5
 cd vllm-minicpm5
-git fetch --depth 1 https://github.com/vllm-project/vllm.git 9ea15f001142d5e2e7ea38f35d076886e59881fc
+git fetch --depth 1 https://github.com/vllm-project/vllm.git 249db3bc16a0a3de722218110e042eb9595168ce
 git checkout --detach FETCH_HEAD
 
-MODEL_ROOT="/absolute/path/to/checkpoints"
+MODEL_PATH="/absolute/path/to/MiniCPM5-15B-A2.5B-GPTQ"
 docker run --rm -it --gpus device=0 --ipc=host \
     -p 127.0.0.1:8000:8000 \
-    -v "$PWD:/vllm-src:ro" -v "$MODEL_ROOT:/models:ro" \
-    --entrypoint /bin/bash \
-    vllm/vllm-openai@sha256:663d493862a5d2c3f212f28d1bf5a5fd76dff08ec76dd1ebd72a7d230621be9a
+    -v "$PWD:/vllm-src:ro" -v "$MODEL_PATH:/model:ro" \
+    --entrypoint /bin/bash vllm/vllm-openai@sha256:663d493862a5d2c3f212f28d1bf5a5fd76dff08ec76dd1ebd72a7d230621be9a
 ```
 
 In the container, overlay the five Python files onto the image's vLLM package. The overlay keeps the image's compiled extensions and uses a separate directory for the PR files.
@@ -163,14 +162,27 @@ export PYTHONPATH="$OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
 cd "$OVERLAY"
 ```
 
-### Choose the checkpoint and launch
+### Serve the published GPTQ INT4 checkpoint
 
-Set `MODEL_DIR` to the BF16 snapshot. Use the same Transformers-compatible fast tokenizer and chat template from the BF16 checkpoint for both BF16 and INT4. Plain-text encoding must preserve the checkpoint's `add_bos_token=false` and `add_eos_token=false` settings. The chat template can still emit its own special tokens.
+Run this in the container. The mounted directory contains the fast tokenizer and chat template. vLLM reads its quantization config, selects `auto_awq` and uses Marlin for the quantized Linear and MoE layers.
 
 ```bash
-MODEL_DIR="/models/MiniCPM5-15B-A2.5B"
-TOKENIZER_DIR="/models/MiniCPM5-15B-A2.5B-tokenizer"
-extra=()
+vllm serve /model \
+    --host 0.0.0.0 --port 8000 --served-model-name MiniCPM5-15B-A2.5B \
+    --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 1024 \
+    --max-num-seqs 2 --gpu-memory-utilization 0.70 --generation-config vllm \
+    --linear-backend marlin --moe-backend marlin --enforce-eager
+```
+
+On one H800, this eager launch loaded the single weight file and answered two Chat Completions requests. The 1,024-token context is sufficient for this short chat check. For a Codex client, use the longer context and Responses-capable build in the [Codex guide](codex.md).
+
+### BF16 and speculative decoding
+
+For BF16, mount the complete BF16 checkpoint at `/model` instead. Use the directory's own tokenizer when it is compatible. The optional conversion below is for older BF16 snapshots that declare `LlamaTokenizerFast`.
+
+```bash
+MODEL_DIR=/model
+TOKENIZER_DIR=/model
 ```
 
 If the BF16 tokenizer still declares `LlamaTokenizerFast`, prepare a separate copy for the Transformers 5 runtime in the pinned image. The following converts the legacy class metadata and makes the serialized post-processor match the original plain-text encoding. Run it while `MODEL_DIR` still points to the BF16 snapshot.
@@ -209,28 +221,22 @@ for text in ("The capital of France is", "请用一句话介绍北京。"):
 PY
 ```
 
-For the asymmetric INT4 checkpoint in `compressed-tensors` format, select its directory and use Marlin for both Linear and MoE layers.
-
-```bash
-MODEL_DIR="/models/MiniCPM5-15B-A2.5B-INT4"
-extra+=(--quantization compressed-tensors --linear-backend marlin --moe-backend marlin)
-```
-
-To run DSpark with either precision, use the draft trained for the selected target.
-
-```bash
-DSPARK_DIR="/models/MiniCPM5-15B-A2.5B-DSpark"
-SPEC_CONFIG=$(python3 -c 'import json, sys; print(json.dumps({"method": "dspark", "model": sys.argv[1], "num_speculative_tokens": 7}))' "$DSPARK_DIR")
-extra+=(--speculative-config "$SPEC_CONFIG")
-```
+For a BF16 server, use the tokenizer selected above.
 
 ```bash
 vllm serve "$MODEL_DIR" --tokenizer "$TOKENIZER_DIR" \
     --host 0.0.0.0 --port 8000 --served-model-name MiniCPM5-15B-A2.5B \
     --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 4096 \
-    --max-num-seqs 8 --gpu-memory-utilization 0.80 --generation-config vllm \
-    "${extra[@]}"
+    --max-num-seqs 8 --gpu-memory-utilization 0.80 --generation-config vllm
 ```
+
+For BF16 with DSpark, also mount the matching draft at `/dspark` when starting the container (add `-v "$DSPARK_PATH:/dspark:ro"` with `DSPARK_PATH` set on the host). Add `--speculative-config "$SPEC_CONFIG"` to the BF16 command after setting:
+
+```bash
+SPEC_CONFIG='{"method":"dspark","model":"/dspark","num_speculative_tokens":7}'
+```
+
+The earlier INT4 DSpark comparisons below used a separate `compressed-tensors` export. The published AWQ checkpoint was independently verified with ordinary decoding.
 
 ### Chat completion
 
@@ -248,11 +254,13 @@ curl -fsS http://127.0.0.1:8000/v1/chat/completions \
 ### Validation scope and limitations
 
 - CPU unit and registry tests at `9ea15f00` reported 8 passed and 1 skipped because the checkpoint was unavailable online. Enabling EPLB (`--enable-eplb`) or ROCm AITER shared-expert fusion (`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`) raises `NotImplementedError` on this revision.
-- Target-only H800 tests at `ee331803` used the one-GPU launch settings above and the same prepared BF16 tokenizer for both precisions. BF16 and INT4 each completed four 48-token greedy `/v1/completions` requests with fixed input token IDs.
+- Earlier target-only H800 tests at `ee331803` used a prepared BF16 tokenizer. BF16 and a separate `compressed-tensors` INT4 export each completed four 48-token greedy `/v1/completions` requests with fixed input token IDs.
 - GPU smoke tests ran at `6db175bb` (prior to the EPLB and ROCm fusion guard cleanup) on one H800 with TP=1, completing four 48-token greedy requests for each BF16 and `compressed-tensors` INT4 configuration with DSpark off and on. BF16 matched greedy token IDs across DSpark modes on all 4 prompts (and matched the Hugging Face SDPA first token on 4/4 prompts). INT4 used Marlin for both Linear and MoE and matched across DSpark modes on 1/4 prompts under the default compile path (4/4 in eager mode with `max_model_len=512` and prefix caching disabled). See [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127).
 
 ### XML tool calling
 
 The pinned nightly has the `minicpm5` parser built in. To enable auto tool choice for Chat Completions, add `--enable-auto-tool-choice --tool-call-parser minicpm5` and send the [tool request example](#tool-calling-plugin) with `MiniCPM5-15B-A2.5B` as the model name.
 
-The XML recovery and Responses tool-search preview was also exercised on H800 with a separate BF16 build combining an earlier model revision and the tool changes. See its launch flags and test scope in [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128).
+On H800, Codex CLI 0.171.0 completed a read-only MCP tool call using the same published GPTQ checkpoint, the model loader at `249db3bc` and the Responses changes at `1d53c277`. This test used ordinary decoding and a 16,384-token context. [vLLM Responses PR #69128](https://github.com/vllm-project/vllm/pull/69128)
+
+See [Codex CLI tool calling](codex.md) for the server flags, Responses protocol and a read-only MCP test.

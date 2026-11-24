@@ -84,6 +84,10 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 
 ## MiniCPM5-15B-A2.5B
 
+Run natively on Apple Silicon with Metal in a Python virtual environment. The tested system used an M5 with 16 GiB, macOS 26.6.2 arm64, Python 3.13.15, MLX 0.32.4 and Transformers 5.23.0. [Installation and model source](../../docs/deployment/mlx.md#minicpm5-15b-a25b)
+
+The native MLX server was tested with Chat Completions. Use a Responses-capable server for the Codex CLI example. [Codex CLI tool calling](../../docs/deployment/codex.md)
+
 1. On Apple Silicon, resolve `MODEL_DIR` to a prepared MLX checkpoint directory. The tested format is affine INT4 with group size 128.
 2. For deployment, select an official MLX LM release that includes `minicpm5_moe`. Upstream v0.32.2 lacks this model. For local validation, use the cookbook's environment and run the short `mlx_lm generate` example to check the target. The model and DSpark server are tracked in the fork. [15B launch commands](../../docs/deployment/mlx.md#minicpm5-15b-a25b) · [cyxu0401/mlx-lm#1](https://github.com/cyxu0401/mlx-lm/pull/1)
 3. Send a short `/v1/chat/completions` request using `default_model`. For DSpark, confirm that `python -m mlx_lm server --help` lists `--speculative-algorithm`. Restart with the matching 15B draft and unquantized KV caches, then check the server log for proposed and accepted tokens. Both modes ran on an Apple M5 with 16 GiB of unified memory.

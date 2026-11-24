@@ -97,9 +97,11 @@ Drop `--tool-parser-plugin` once vLLM ships a release containing the parser nati
 
 ## MiniCPM5-15B-A2.5B
 
+Use one NVIDIA H800 under Linux x86-64 with the vLLM CUDA nightly at `9c1d45c21` and the MiniCPM5 model loader. [Image digest and source setup](../../docs/deployment/vllm.md#prepare-the-preview-runtime)
+
 Use the [MiniCPM5-15B-A2.5B deployment commands](../../docs/deployment/vllm.md#minicpm5-15b-a25b). For a standalone skill installation, open the [GitHub cookbook](https://github.com/OpenBMB/MiniCPM/blob/main/docs/deployment/vllm.md#minicpm5-15b-a25b).
 
-1. Use the pinned source from [vLLM PR #69127](https://github.com/vllm-project/vllm/pull/69127) with the cookbook's official CUDA nightly and Python overlay. Set `MODEL_DIR` and `TOKENIZER_DIR` to the target weights and compatible fast tokenizer with its chat template.
-2. Launch with the cookbook's single-H800 settings. Use the same compatible fast tokenizer and chat template from the BF16 checkpoint for both precisions. Follow the cookbook's legacy tokenizer conversion if needed. For `compressed-tensors` INT4, select Marlin for both Linear and MoE. Keep EPLB and ROCm AITER shared-expert fusion disabled. Check `/v1/models` and send the chat sample.
-3. For DSpark, set `DSPARK_DIR` to the draft checkpoint trained for the selected MiniCPM5-15B-A2.5B target and set `num_speculative_tokens` to `7`. Check the logs or `/metrics` for draft activity. In PR #69127's validation (`6db175bb`), BF16 matched greedy tokens on 4/4 prompts across draft modes, while INT4 matched on 1/4 prompts under the default compile path (4/4 in eager mode at `max_model_len=512`).
-4. For Chat Completions with tools, use the pinned nightly's built-in parser with `--enable-auto-tool-choice --tool-call-parser minicpm5`. See [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128) for the separate XML recovery and Responses tool-search preview.
+1. On one NVIDIA H800, use the CUDA nightly and five-file model overlay pinned in the cookbook (model revision `249db3bc`). Mount the same complete GPTQ directory used by SGLang as `/model`.
+2. Start `vllm serve /model` with Marlin for Linear and MoE. vLLM reads the included fast tokenizer, chat template and `awq` config. The tested ordinary launch used TP=1, eager mode, 1,024 context tokens and two sequences. Check `/v1/models` and send a chat request.
+3. For a BF16 target, follow the separate tokenizer and DSpark instructions. Earlier INT4 DSpark results used a `compressed-tensors` export.
+4. For Chat Completions tools, add `--enable-auto-tool-choice --tool-call-parser minicpm5`. For Codex, use a Responses-capable build with the separate parser changes, increase the context to 16,384 tokens and verify the MCP result and final reply. [Codex instructions](../../docs/deployment/codex.md) · [vLLM PR #69128](https://github.com/vllm-project/vllm/pull/69128)
